@@ -168,11 +168,15 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
   const getStatusDisplay = () => {
     switch (status) {
       case 'connected':
-        return { icon: Mic, text: 'Ready to listen', color: 'text-blue-500' };
+        return { icon: Mic, text: 'LayerCode Ready', color: 'text-blue-500' };
       case 'connecting':
-        return { icon: Loader2, text: 'Connecting...', color: 'text-gray-500' };
+        return { icon: Loader2, text: 'Connecting LayerCode...', color: 'text-yellow-500' };
+      case 'disconnected':
+        return { icon: MicOff, text: 'LayerCode Disconnected', color: 'text-red-500' };
+      case 'error':
+        return { icon: MicOff, text: 'LayerCode Error', color: 'text-red-600' };
       default:
-        return { icon: MicOff, text: 'Disconnected', color: 'text-gray-400' };
+        return { icon: MicOff, text: `Status: ${status}`, color: 'text-gray-400' };
     }
   };
 
@@ -215,6 +219,19 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
             className={`${isListening ? 'bg-red-500' : 'bg-blue-500'} text-white px-2 py-1 rounded text-xs`}
           >
             {isListening ? 'Stop' : 'Web Speech'}
+          </button>
+          <button 
+            onClick={() => {
+              if (sendMessage) {
+                console.log('🧪 Testing LayerCode TTS');
+                sendMessage("LayerCode text to speech is working correctly.");
+              } else {
+                console.log('❌ sendMessage not available');
+              }
+            }}
+            className="bg-indigo-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Test TTS
           </button>
         </div>
         {transcript && (

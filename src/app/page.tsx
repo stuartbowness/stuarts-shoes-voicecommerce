@@ -49,6 +49,7 @@ export default function Home() {
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sendMessage, setSendMessage] = useState<((message: string) => void) | null>(null);
+  const [hasGreeted, setHasGreeted] = useState(false);
 
   const handleVoiceCommand = async (transcript: string) => {
     console.log('🎙️ Voice command received:', transcript);
@@ -131,6 +132,20 @@ export default function Home() {
     }
   };
 
+  // Send initial greeting when sendMessage becomes available
+  const handleSendMessageReady = (sendMessageFn: (message: string) => void) => {
+    setSendMessage(() => sendMessageFn);
+    
+    // Send greeting after a short delay to ensure connection is ready
+    if (!hasGreeted) {
+      setTimeout(() => {
+        console.log('🎙️ Sending initial greeting');
+        sendMessageFn("Hello! I'm your voice shopping assistant for Stuart's Shoes. How can I help you find the perfect pair today?");
+        setHasGreeted(true);
+      }, 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header cartItems={cart} />
@@ -162,7 +177,7 @@ export default function Home() {
 
       <VoiceConsole 
         onCommand={handleVoiceCommand} 
-        onSendMessageReady={setSendMessage}
+        onSendMessageReady={handleSendMessageReady}
       />
     </div>
   );
