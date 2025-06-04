@@ -53,9 +53,6 @@ export default function Home() {
     console.log('🎙️ Voice command received:', transcript);
     console.log('📊 Current view before processing:', currentView);
     
-    // Force UI update immediately to test
-    alert(`Voice command received: ${transcript}`);
-    
     try {
       const response = await fetch('/api/voice-process', {
         method: 'POST',
