@@ -13,6 +13,7 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
   const hasInitialized = useRef(false);
   const lastProcessedTime = useRef(0);
   const recognitionRef = useRef<any>(null);
+  const lastProcessedTranscript = useRef<string>('');
   
   // Try Web Speech API as backup
   useEffect(() => {
@@ -89,6 +90,30 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
       window.removeEventListener('layercode-transcript', handleLayercodeEvent);
       window.removeEventListener('layercode-data', handleLayercodeEvent);
     };
+  }, [onCommand]);
+  
+  // Poll for LayerCode webhook transcripts
+  useEffect(() => {
+    const pollForTranscript = async () => {
+      try {
+        const response = await fetch('/api/latest-transcript');
+        const data = await response.json();
+        
+        if (data.transcript && data.transcript !== lastProcessedTranscript.current) {
+          console.log('🎯 Got LayerCode webhook transcript:', data.transcript);
+          lastProcessedTranscript.current = data.transcript;
+          setTranscript(data.transcript);
+          onCommand(data.transcript);
+        }
+      } catch (error) {
+        console.error('❌ Error polling for transcript:', error);
+      }
+    };
+    
+    // Poll every 500ms when LayerCode is connected
+    const interval = setInterval(pollForTranscript, 500);
+    
+    return () => clearInterval(interval);
   }, [onCommand]);
   
   const { agentAudioAmplitude, status, sendMessage } = useLayercodePipeline({
