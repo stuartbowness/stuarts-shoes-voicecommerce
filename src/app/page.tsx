@@ -11,6 +11,10 @@ const VoiceDebug = dynamic(() => import('@/components/VoiceDebug').then(mod => (
   ssr: false
 });
 
+const AuthTest = dynamic(() => import('@/components/AuthTest').then(mod => ({ default: mod.AuthTest })), {
+  ssr: false
+});
+
 // Dynamically import VoiceConsole to avoid SSR issues
 const VoiceConsole = dynamic(() => import('@/components/VoiceConsole'), {
   ssr: false,
@@ -99,6 +103,7 @@ export default function Home() {
 
       <VoiceConsole onCommand={handleVoiceCommand} />
       <VoiceDebug />
+      <AuthTest />
     </div>
   );
 }
