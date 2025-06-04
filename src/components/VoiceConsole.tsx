@@ -154,7 +154,7 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
       console.log('📊 LayerCode status changed to:', newStatus);
     },
     enableMicrophone: true,
-    enableSpeaker: false,
+    enableSpeaker: true,
   });
 
   const getStatusDisplay = () => {
