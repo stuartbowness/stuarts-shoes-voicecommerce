@@ -9,89 +9,10 @@ interface VoiceConsoleProps {
 }
 
 export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProps) {
-  const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const hasInitialized = useRef(false);
   const lastProcessedTime = useRef(0);
-  const recognitionRef = useRef<any>(null);
   const lastProcessedTranscript = useRef<string>('');
   
-  // Try Web Speech API as backup
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      
-      recognitionRef.current.onstart = () => {
-        console.log('🎤 Web Speech API started');
-        setIsListening(true);
-      };
-      
-      recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        if (finalTranscript.trim()) {
-          console.log('🎤 Web Speech API transcript:', finalTranscript);
-          setTranscript(finalTranscript);
-          onCommand(finalTranscript.trim());
-        }
-      };
-      
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('🎤 Web Speech API error:', event.error);
-        setIsListening(false);
-      };
-      
-      recognitionRef.current.onend = () => {
-        console.log('🎤 Web Speech API ended');
-        setIsListening(false);
-      };
-    }
-  }, [onCommand]);
-  
-  const startWebSpeech = () => {
-    if (recognitionRef.current && !isListening) {
-      try {
-        recognitionRef.current.start();
-        console.log('🎤 Starting Web Speech API...');
-      } catch (error) {
-        console.error('🎤 Error starting Web Speech API:', error);
-      }
-    }
-  };
-  
-  const stopWebSpeech = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-    }
-  };
-  
-  // Add window event listener as backup for LayerCode events
-  useEffect(() => {
-    const handleLayercodeEvent = (event: any) => {
-      console.log('🌐 Window LayerCode event:', event);
-      if (event.detail && event.detail.transcript) {
-        console.log('🎯 Found transcript in window event:', event.detail.transcript);
-        onCommand(event.detail.transcript);
-      }
-    };
-    
-    // Listen for custom LayerCode events
-    window.addEventListener('layercode-transcript', handleLayercodeEvent);
-    window.addEventListener('layercode-data', handleLayercodeEvent);
-    
-    return () => {
-      window.removeEventListener('layercode-transcript', handleLayercodeEvent);
-      window.removeEventListener('layercode-data', handleLayercodeEvent);
-    };
-  }, [onCommand]);
   
   // Poll for LayerCode webhook transcripts
   useEffect(() => {
@@ -156,6 +77,7 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
     },
     enableMicrophone: true,
     enableSpeaker: true,
+    webhookUrl: '/api/layercode-webhook',
   });
 
   // Pass sendMessage function to parent when it's ready
@@ -199,26 +121,6 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
             className="bg-green-500 text-white px-2 py-1 rounded text-xs"
           >
             Test Voice
-          </button>
-          <button 
-            onClick={() => {
-              console.log('🔍 Checking for LayerCode transcript data...');
-              // Check if LayerCode has stored transcript data anywhere accessible
-              console.log('Window layercode objects:', Object.keys(window).filter(key => key.toLowerCase().includes('layer')));
-              console.log('Document elements with layercode:', document.querySelectorAll('[id*="layer"], [class*="layer"]'));
-              
-              // Try to trigger voice command with hardcoded transcript for testing
-              onCommand('show me trail running shoes under 150');
-            }}
-            className="bg-purple-500 text-white px-2 py-1 rounded text-xs"
-          >
-            Force Search
-          </button>
-          <button 
-            onClick={isListening ? stopWebSpeech : startWebSpeech}
-            className={`${isListening ? 'bg-red-500' : 'bg-blue-500'} text-white px-2 py-1 rounded text-xs`}
-          >
-            {isListening ? 'Stop' : 'Web Speech'}
           </button>
           <button 
             onClick={() => {
