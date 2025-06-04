@@ -7,10 +7,34 @@ interface BigCommerceProduct {
   categories?: string[];
 }
 
-export async function searchProducts(query: string): Promise<BigCommerceProduct[]> {
+interface SearchOptions {
+  keyword?: string;
+  priceMin?: number;
+  priceMax?: number;
+}
+
+export async function searchProducts(query: string, options?: SearchOptions): Promise<BigCommerceProduct[]> {
   try {
+    const params = new URLSearchParams();
+    
+    // Add keyword parameter
+    const keyword = options?.keyword || query;
+    if (keyword) {
+      params.append('keyword', keyword);
+    }
+    
+    // Add price filtering parameters
+    if (options?.priceMin !== undefined) {
+      params.append('price:min', options.priceMin.toString());
+    }
+    if (options?.priceMax !== undefined) {
+      params.append('price:max', options.priceMax.toString());
+    }
+    
+    params.append('limit', '12');
+    
     const response = await fetch(
-      `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?keyword=${encodeURIComponent(query)}&limit=12`,
+      `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?${params.toString()}`,
       {
         headers: {
           'X-Auth-Token': process.env.BIGCOMMERCE_ACCESS_TOKEN!,

@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { searchProducts } from '@/lib/bigcommerce';
 import { vectorSearch } from '@/lib/pinecone';
 
+interface PriceFilter {
+  min?: number;
+  max?: number;
+}
+
 export async function POST(request: Request) {
   try {
     const { query } = await request.json();
@@ -36,48 +41,164 @@ export async function POST(request: Request) {
   }
 }
 
+function extractPriceFilter(query: string): PriceFilter {
+  const lowerQuery = query.toLowerCase();
+  const priceFilter: PriceFilter = {};
+  
+  // Look for patterns like "under 150", "below 200", "less than 100"
+  const underMatch = lowerQuery.match(/(?:under|below|less than)\s*\$?(\d+)/);
+  if (underMatch) {
+    priceFilter.max = parseInt(underMatch[1]);
+  }
+  
+  // Look for patterns like "over 50", "above 100", "more than 75"
+  const overMatch = lowerQuery.match(/(?:over|above|more than)\s*\$?(\d+)/);
+  if (overMatch) {
+    priceFilter.min = parseInt(overMatch[1]);
+  }
+  
+  // Look for range patterns like "between 50 and 150", "from 100 to 200"
+  const rangeMatch = lowerQuery.match(/(?:between|from)\s*\$?(\d+)\s*(?:and|to)\s*\$?(\d+)/);
+  if (rangeMatch) {
+    priceFilter.min = parseInt(rangeMatch[1]);
+    priceFilter.max = parseInt(rangeMatch[2]);
+  }
+  
+  return priceFilter;
+}
+
+function extractSearchKeywords(query: string): string {
+  // Remove price-related terms to get clean keywords
+  return query
+    .replace(/(?:under|below|less than|over|above|more than|between|from)\s*\$?\d+(?:\s*(?:and|to)\s*\$?\d+)?/gi, '')
+    .replace(/\$\d+/g, '')
+    .trim();
+}
+
 async function searchProductsWithVector(query: string) {
   try {
-    console.log('Searching for:', query);
-    const [, bcProducts] = await Promise.all([
-      vectorSearch(query),
-      searchProducts(query)
+    console.log('🔍 Starting search for:', query);
+    
+    // Extract price filter and clean keywords
+    const priceFilter = extractPriceFilter(query);
+    const keywords = extractSearchKeywords(query);
+    
+    console.log('💰 Price filter:', priceFilter);
+    console.log('🔤 Keywords:', keywords);
+    
+    const searchOptions = {
+      keyword: keywords,
+      priceMin: priceFilter.min,
+      priceMax: priceFilter.max
+    };
+    
+    console.log('📋 Search options:', searchOptions);
+    
+    // Try vector search and BigCommerce search in parallel
+    console.log('🚀 Starting parallel searches...');
+    const [vectorResults, bcProducts] = await Promise.all([
+      vectorSearch(keywords).catch(err => {
+        console.error('❌ Vector search failed:', err);
+        return [];
+      }),
+      searchProducts(keywords, searchOptions).catch(err => {
+        console.error('❌ BigCommerce search failed:', err);
+        return [];
+      })
     ]);
     
-    console.log('Found products:', bcProducts.length);
-    return bcProducts.slice(0, 12);
+    console.log('📊 Vector results:', vectorResults?.length || 0);
+    console.log('📊 BigCommerce results:', bcProducts?.length || 0);
+    
+    if (bcProducts && bcProducts.length > 0) {
+      console.log('✅ Returning BigCommerce products');
+      return bcProducts.slice(0, 12);
+    }
+    
+    console.log('⚠️ No products found, falling back to mock');
+    return getMockProducts(query);
+    
   } catch (error) {
-    console.error('Search error:', error);
+    console.error('💥 Major search error:', error);
+    console.log('🔄 Attempting fallback search...');
+    
     try {
-      const fallbackProducts = await searchProducts(query);
-      console.log('Fallback products:', fallbackProducts.length);
-      return fallbackProducts.slice(0, 12);
+      const keywords = extractSearchKeywords(query);
+      const priceFilter = extractPriceFilter(query);
+      const searchOptions = {
+        keyword: keywords,
+        priceMin: priceFilter.min,
+        priceMax: priceFilter.max
+      };
+      
+      console.log('🔄 Fallback search with options:', searchOptions);
+      const fallbackProducts = await searchProducts(keywords, searchOptions);
+      console.log('📊 Fallback products:', fallbackProducts.length);
+      
+      if (fallbackProducts && fallbackProducts.length > 0) {
+        return fallbackProducts.slice(0, 12);
+      }
+      
+      console.log('🎭 Using mock products as final fallback');
+      return getMockProducts(query);
+      
     } catch (fallbackError) {
-      console.error('Fallback search also failed:', fallbackError);
+      console.error('💥 Fallback search also failed:', fallbackError);
+      console.log('🎭 Using mock products');
       return getMockProducts(query);
     }
   }
 }
 
 function getMockProducts(query: string) {
-  return [
+  const priceFilter = extractPriceFilter(query);
+  const keywords = extractSearchKeywords(query);
+  
+  const allMockProducts = [
     {
       id: 1,
-      name: `Sample ${query} - Athletic Running Shoe`,
+      name: `Athletic Running Shoe - ${keywords}`,
       price: 120,
       images: [{ url: '/placeholder-shoe.jpg' }],
-      description: `High-quality ${query} designed for performance and comfort`,
+      description: `High-quality running shoe designed for performance and comfort`,
       categories: ['Running', 'Athletic']
     },
     {
       id: 2,
-      name: `Premium ${query} - Training Sneaker`,
+      name: `Premium Training Sneaker - ${keywords}`,
       price: 95,
       images: [{ url: '/placeholder-shoe.jpg' }],
-      description: `Versatile ${query} perfect for training and everyday wear`,
+      description: `Versatile training shoe perfect for workouts and everyday wear`,
       categories: ['Training', 'Casual']
+    },
+    {
+      id: 3,
+      name: `Budget-Friendly Running Shoe - ${keywords}`,
+      price: 65,
+      images: [{ url: '/placeholder-shoe.jpg' }],
+      description: `Affordable running shoe with great comfort`,
+      categories: ['Running', 'Budget']
+    },
+    {
+      id: 4,
+      name: `Professional Running Shoe - ${keywords}`,
+      price: 180,
+      images: [{ url: '/placeholder-shoe.jpg' }],
+      description: `Premium running shoe for serious athletes`,
+      categories: ['Running', 'Professional']
     }
   ];
+  
+  // Filter by price if specified
+  let filteredProducts = allMockProducts;
+  if (priceFilter.min !== undefined) {
+    filteredProducts = filteredProducts.filter(p => p.price >= priceFilter.min!);
+  }
+  if (priceFilter.max !== undefined) {
+    filteredProducts = filteredProducts.filter(p => p.price <= priceFilter.max!);
+  }
+  
+  return filteredProducts;
 }
 
 async function findProductsForComparison(query: string) {
