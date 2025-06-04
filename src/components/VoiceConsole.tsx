@@ -9,6 +9,27 @@ interface VoiceConsoleProps {
 
 export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
   const hasInitialized = useRef(false);
+  const lastProcessedTime = useRef(0);
+  
+  // Add window event listener as backup for LayerCode events
+  useEffect(() => {
+    const handleLayercodeEvent = (event: any) => {
+      console.log('🌐 Window LayerCode event:', event);
+      if (event.detail && event.detail.transcript) {
+        console.log('🎯 Found transcript in window event:', event.detail.transcript);
+        onCommand(event.detail.transcript);
+      }
+    };
+    
+    // Listen for custom LayerCode events
+    window.addEventListener('layercode-transcript', handleLayercodeEvent);
+    window.addEventListener('layercode-data', handleLayercodeEvent);
+    
+    return () => {
+      window.removeEventListener('layercode-transcript', handleLayercodeEvent);
+      window.removeEventListener('layercode-data', handleLayercodeEvent);
+    };
+  }, [onCommand]);
   
   const { agentAudioAmplitude, status, sendMessage } = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
@@ -17,14 +38,22 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
       console.log('🔊 LayerCode data received:', data);
       console.log('🔊 Data type:', typeof data, 'Keys:', Object.keys(data));
       
-      // Try different possible transcript fields
-      const transcript = data.transcript || data.text || data.message || data.content;
+      // Prevent duplicate processing
+      const now = Date.now();
+      if (now - lastProcessedTime.current < 1000) {
+        console.log('⏱️ Skipping duplicate within 1 second');
+        return;
+      }
       
-      if (transcript) {
+      // Try different possible transcript fields
+      const transcript = data.transcript || data.text || data.message || data.content || data.user_input;
+      
+      if (transcript && transcript.trim()) {
         console.log('✅ Found transcript:', transcript);
         console.log('📞 Calling onCommand with:', transcript);
+        lastProcessedTime.current = now;
         try {
-          onCommand(transcript);
+          onCommand(transcript.trim());
           console.log('✅ onCommand called successfully');
         } catch (error) {
           console.error('❌ Error calling onCommand:', error);
@@ -40,7 +69,7 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
       console.log('📊 LayerCode status changed to:', newStatus);
     },
     enableMicrophone: true,
-    enableSpeaker: false, // Disable speaker to prevent feedback
+    enableSpeaker: false,
   });
 
   const getStatusDisplay = () => {
@@ -74,21 +103,20 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
           >
             Test Voice
           </button>
-          {sendMessage && (
-            <button 
-              onClick={() => {
-                console.log('🔄 Attempting to send test message to LayerCode');
-                try {
-                  sendMessage({ type: 'test', message: 'hello' });
-                } catch (error) {
-                  console.error('Error sending message:', error);
-                }
-              }}
-              className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-            >
-              Test LC
-            </button>
-          )}
+          <button 
+            onClick={() => {
+              console.log('🔍 Checking for LayerCode transcript data...');
+              // Check if LayerCode has stored transcript data anywhere accessible
+              console.log('Window layercode objects:', Object.keys(window).filter(key => key.toLowerCase().includes('layer')));
+              console.log('Document elements with layercode:', document.querySelectorAll('[id*="layer"], [class*="layer"]'));
+              
+              // Try to trigger voice command with hardcoded transcript for testing
+              onCommand('show me trail running shoes under 150');
+            }}
+            className="bg-purple-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Force Search
+          </button>
         </div>
       </div>
     </div>
