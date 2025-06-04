@@ -1,9 +1,40 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+const WEBHOOK_SECRET = 'nk1w6dt7i6jg2i8fk1yg79cq';
+
+function verifySignature(body: string, signature: string): boolean {
+  try {
+    const [timestamp, hash] = signature.split(',').map(part => part.split('=')[1]);
+    const expectedSignature = crypto
+      .createHmac('sha256', WEBHOOK_SECRET)
+      .update(timestamp + '.' + body)
+      .digest('hex');
+    
+    return hash === expectedSignature;
+  } catch (error) {
+    console.error('❌ Signature verification failed:', error);
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    console.log('🎯 LayerCode webhook received:', body);
+    const rawBody = await request.text();
+    const signature = request.headers.get('layercode-signature');
+    
+    console.log('🎯 LayerCode webhook received');
+    console.log('📝 Raw body:', rawBody);
+    console.log('🔐 Signature:', signature);
+    
+    // Verify webhook signature
+    if (signature && !verifySignature(rawBody, signature)) {
+      console.error('❌ Invalid webhook signature');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+    
+    const body = JSON.parse(rawBody);
+    console.log('✅ Parsed body:', body);
     
     // Extract transcript from LayerCode webhook
     if (body.text && body.type === 'message') {
@@ -14,15 +45,18 @@ export async function POST(request: Request) {
       global.latestTranscript = {
         text: body.text,
         timestamp: Date.now(),
-        session_id: body.session_id,
-        turn_id: body.turn_id
+        session_id: body.session_id || 'unknown',
+        turn_id: body.turn_id || 'unknown'
       };
       
       console.log('💾 Stored transcript:', global.latestTranscript);
     }
     
-    // Return success to LayerCode
-    return NextResponse.json({ received: true });
+    // Return success to LayerCode - this allows LayerCode to continue processing
+    return NextResponse.json({ 
+      received: true,
+      processed: !!body.text 
+    });
     
   } catch (error) {
     console.error('❌ LayerCode webhook error:', error);
