@@ -15,7 +15,7 @@ export function ProductGrid({ products, query }: ProductGridProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">"{query}"</h2>
+        <h2 className="text-2xl font-bold text-gray-900">&ldquo;{query}&rdquo;</h2>
         <p className="text-gray-600">Found {products.length} products</p>
       </div>
       

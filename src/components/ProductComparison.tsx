@@ -17,7 +17,7 @@ export function ProductComparison({ products }: ProductComparisonProps) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">No products to compare. Try saying "Compare [shoe name] and [another shoe name]"</p>
+        <p className="text-gray-500 text-lg">No products to compare. Try saying &ldquo;Compare [shoe name] and [another shoe name]&rdquo;</p>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export function ProductComparison({ products }: ProductComparisonProps) {
           </div>
           <div>
             <h4 className="font-medium text-blue-800 mb-2">Voice Commands</h4>
-            <p className="text-blue-700 text-sm">"Add [shoe name] to cart"</p>
+            <p className="text-blue-700 text-sm">&ldquo;Add [shoe name] to cart&rdquo;</p>
           </div>
         </div>
       </div>

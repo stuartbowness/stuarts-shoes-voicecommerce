@@ -87,9 +87,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-semibold text-blue-900 mb-2">Voice Commands</h4>
             <ul className="text-blue-700 text-sm space-y-1">
-              <li>"Add this to my cart"</li>
-              <li>"Compare this with [other shoe]"</li>
-              <li>"Show me similar shoes"</li>
+              <li>&ldquo;Add this to my cart&rdquo;</li>
+              <li>&ldquo;Compare this with [other shoe]&rdquo;</li>
+              <li>&ldquo;Show me similar shoes&rdquo;</li>
             </ul>
           </div>
         </div>

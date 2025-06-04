@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { searchProducts, getProduct } from '@/lib/bigcommerce';
+import { searchProducts } from '@/lib/bigcommerce';
 import { vectorSearch } from '@/lib/pinecone';
 
 export async function POST(request: Request) {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
 async function searchProductsWithVector(query: string) {
   try {
-    const [vectorResults, bcProducts] = await Promise.all([
+    const [, bcProducts] = await Promise.all([
       vectorSearch(query),
       searchProducts(query)
     ]);
