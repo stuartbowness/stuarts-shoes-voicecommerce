@@ -14,16 +14,12 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/authorize',
     onDataMessage: (data) => {
-      if (data.transcript && !hasInitialized.current) {
+      console.log('LayerCode data received:', data);
+      if (data.transcript) {
+        console.log('Processing transcript:', data.transcript);
         onCommand(data.transcript);
-        hasInitialized.current = true;
-        // Reset after a short delay to allow new commands
-        setTimeout(() => {
-          hasInitialized.current = false;
-        }, 2000);
       }
     },
-    // Prevent audio feedback
     enableMicrophone: true,
     enableSpeaker: true,
   });

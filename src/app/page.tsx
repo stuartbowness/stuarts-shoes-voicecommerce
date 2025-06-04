@@ -50,7 +50,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleVoiceCommand = async (transcript: string) => {
-    console.log('Voice command received:', transcript);
+    console.log('🎙️ Voice command received:', transcript);
+    console.log('📊 Current view before processing:', currentView);
     
     try {
       const response = await fetch('/api/voice-process', {
@@ -64,41 +65,50 @@ export default function Home() {
       }
       
       const result = await response.json();
-      console.log('Voice processing result:', result);
+      console.log('🔄 Voice processing result:', result);
       
       switch (result.action) {
         case 'search':
+          console.log('🔍 Setting search view with products:', result.products?.length || 0);
           setProducts(result.products || []);
           setSearchQuery(result.query || transcript);
           setCurrentView('search');
-          console.log('Showing search results for:', result.query);
+          console.log('✅ Search view set');
           break;
         case 'show_product':
           if (result.product) {
+            console.log('📱 Setting detail view for product:', result.product.name);
             setSelectedProduct(result.product);
             setCurrentView('detail');
           }
           break;
         case 'compare':
+          console.log('⚖️ Setting compare view with products:', result.products?.length || 0);
           setCompareProducts(result.products || []);
           setCurrentView('compare');
           break;
         case 'add_to_cart':
           if (result.product) {
+            console.log('🛒 Adding to cart:', result.product.name);
             setCart(prev => [...prev, result.product]);
           }
           break;
         default:
-          // Default to search if no specific action
+          console.log('🔍 Default search for:', transcript);
           setProducts(result.products || []);
           setSearchQuery(transcript);
           setCurrentView('search');
-          console.log('Default search for:', transcript);
+          console.log('✅ Default search view set');
       }
+      
+      // Force re-render check
+      setTimeout(() => {
+        console.log('📊 Current view after processing:', currentView);
+      }, 100);
+      
     } catch (error) {
-      console.error('Voice command processing error:', error);
-      // Fallback: treat as search query
-      console.log('Fallback: treating as search query');
+      console.error('❌ Voice command processing error:', error);
+      console.log('🔄 Fallback: treating as search query');
       setSearchQuery(transcript);
       setCurrentView('search');
     }
@@ -107,6 +117,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header cartItems={cart} />
+      
+      {/* Debug info */}
+      <div className="fixed top-4 right-4 bg-black text-white p-2 rounded text-xs z-40">
+        View: {currentView} | Products: {products.length} | Query: {searchQuery}
+      </div>
       
       <main className="max-w-7xl mx-auto px-6 py-8">
         {currentView === 'home' && <Hero />}
