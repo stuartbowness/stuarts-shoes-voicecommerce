@@ -17,7 +17,11 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
       console.log('LayerCode data received:', data);
       if (data.transcript) {
         console.log('Processing transcript:', data.transcript);
+        console.log('Calling onCommand with:', data.transcript);
         onCommand(data.transcript);
+        console.log('onCommand called successfully');
+      } else {
+        console.log('No transcript in data:', data);
       }
     },
     enableMicrophone: true,

@@ -53,6 +53,9 @@ export default function Home() {
     console.log('🎙️ Voice command received:', transcript);
     console.log('📊 Current view before processing:', currentView);
     
+    // Force UI update immediately to test
+    alert(`Voice command received: ${transcript}`);
+    
     try {
       const response = await fetch('/api/voice-process', {
         method: 'POST',
@@ -121,6 +124,13 @@ export default function Home() {
       {/* Debug info */}
       <div className="fixed top-4 right-4 bg-black text-white p-2 rounded text-xs z-40">
         View: {currentView} | Products: {products.length} | Query: {searchQuery}
+        <br />
+        <button 
+          onClick={() => handleVoiceCommand("show me running shoes")}
+          className="bg-blue-500 text-white px-2 py-1 rounded mt-1 text-xs"
+        >
+          Test Voice Command
+        </button>
       </div>
       
       <main className="max-w-7xl mx-auto px-6 py-8">
