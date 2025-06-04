@@ -48,6 +48,7 @@ export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sendMessage, setSendMessage] = useState<((message: string) => void) | null>(null);
 
   const handleVoiceCommand = async (transcript: string) => {
     console.log('🎙️ Voice command received:', transcript);
@@ -67,12 +68,17 @@ export default function Home() {
       const result = await response.json();
       console.log('🔄 Voice processing result:', result);
       
+      // Generate voice response based on action
+      let voiceResponse = '';
+      
       switch (result.action) {
         case 'search':
           console.log('🔍 Setting search view with products:', result.products?.length || 0);
           setProducts(result.products || []);
           setSearchQuery(result.query || transcript);
           setCurrentView('search');
+          const productCount = result.products?.length || 0;
+          voiceResponse = `I found ${productCount} products for ${result.query || transcript}. Let me show you the results.`;
           console.log('✅ Search view set');
           break;
         case 'show_product':
@@ -80,17 +86,21 @@ export default function Home() {
             console.log('📱 Setting detail view for product:', result.product.name);
             setSelectedProduct(result.product);
             setCurrentView('detail');
+            voiceResponse = `Here are the details for ${result.product.name}. It's priced at $${result.product.price}.`;
           }
           break;
         case 'compare':
           console.log('⚖️ Setting compare view with products:', result.products?.length || 0);
           setCompareProducts(result.products || []);
           setCurrentView('compare');
+          const compareCount = result.products?.length || 0;
+          voiceResponse = `I'm comparing ${compareCount} products for you. Let me show you the differences.`;
           break;
         case 'add_to_cart':
           if (result.product) {
             console.log('🛒 Adding to cart:', result.product.name);
             setCart(prev => [...prev, result.product]);
+            voiceResponse = `I've added ${result.product.name} to your cart.`;
           }
           break;
         default:
@@ -98,7 +108,14 @@ export default function Home() {
           setProducts(result.products || []);
           setSearchQuery(transcript);
           setCurrentView('search');
+          voiceResponse = `Let me search for ${transcript}.`;
           console.log('✅ Default search view set');
+      }
+      
+      // Send response back through LayerCode for voice output
+      if (sendMessage && voiceResponse) {
+        console.log('🔊 Sending voice response:', voiceResponse);
+        sendMessage(voiceResponse);
       }
       
       // Force re-render check
@@ -143,7 +160,10 @@ export default function Home() {
         )}
       </main>
 
-      <VoiceConsole onCommand={handleVoiceCommand} />
+      <VoiceConsole 
+        onCommand={handleVoiceCommand} 
+        onSendMessageReady={setSendMessage}
+      />
     </div>
   );
 }

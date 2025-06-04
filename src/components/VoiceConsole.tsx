@@ -5,9 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 
 interface VoiceConsoleProps {
   onCommand: (text: string) => void;
+  onSendMessageReady?: (sendMessage: (message: string) => void) => void;
 }
 
-export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
+export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProps) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const hasInitialized = useRef(false);
@@ -156,6 +157,13 @@ export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
     enableMicrophone: true,
     enableSpeaker: true,
   });
+
+  // Pass sendMessage function to parent when it's ready
+  useEffect(() => {
+    if (sendMessage && onSendMessageReady) {
+      onSendMessageReady(sendMessage);
+    }
+  }, [sendMessage, onSendMessageReady]);
 
   const getStatusDisplay = () => {
     switch (status) {
