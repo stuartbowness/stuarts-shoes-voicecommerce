@@ -6,6 +6,7 @@ import { Hero } from '@/components/Hero';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductComparison } from '@/components/ProductComparison';
+import { VoiceDebug } from '@/components/VoiceDebug';
 
 // Dynamically import VoiceConsole to avoid SSR issues
 const VoiceConsole = dynamic(() => import('@/components/VoiceConsole'), {
@@ -94,6 +95,7 @@ export default function Home() {
       </main>
 
       <VoiceConsole onCommand={handleVoiceCommand} />
+      <VoiceDebug />
     </div>
   );
 }
