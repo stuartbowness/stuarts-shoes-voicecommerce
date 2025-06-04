@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync-catalog": "tsx src/scripts/sync-catalog.ts"
+    "sync-catalog": "tsx src/scripts/sync-catalog.ts",
+    "test-bigcommerce": "tsx src/scripts/test-bigcommerce.ts"
   },
   "dependencies": {
     "@layercode/react-sdk": "^1.0.21",

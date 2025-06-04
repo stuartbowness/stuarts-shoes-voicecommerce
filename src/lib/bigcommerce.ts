@@ -10,7 +10,7 @@ interface BigCommerceProduct {
 export async function searchProducts(query: string): Promise<BigCommerceProduct[]> {
   try {
     const response = await fetch(
-      `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products/search?keyword=${encodeURIComponent(query)}&limit=12`,
+      `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?keyword=${encodeURIComponent(query)}&limit=12`,
       {
         headers: {
           'X-Auth-Token': process.env.BIGCOMMERCE_ACCESS_TOKEN!,
