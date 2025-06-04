@@ -6,7 +6,10 @@ import { Hero } from '@/components/Hero';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductComparison } from '@/components/ProductComparison';
-import { VoiceDebug } from '@/components/VoiceDebug';
+// Dynamically import VoiceDebug to avoid SSR issues  
+const VoiceDebug = dynamic(() => import('@/components/VoiceDebug').then(mod => ({ default: mod.VoiceDebug })), {
+  ssr: false
+});
 
 // Dynamically import VoiceConsole to avoid SSR issues
 const VoiceConsole = dynamic(() => import('@/components/VoiceConsole'), {

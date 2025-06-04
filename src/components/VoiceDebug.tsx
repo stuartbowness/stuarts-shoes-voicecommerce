@@ -1,7 +1,7 @@
 'use client';
 import { useLayercodePipeline } from '@layercode/react-sdk';
 
-export function VoiceDebug() {
+function VoiceDebug() {
   const pipeline = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/authorize',
@@ -26,3 +26,6 @@ export function VoiceDebug() {
     </div>
   );
 }
+
+export { VoiceDebug };
+export default VoiceDebug;
