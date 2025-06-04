@@ -50,6 +50,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleVoiceCommand = async (transcript: string) => {
+    console.log('Voice command received:', transcript);
+    
     try {
       const response = await fetch('/api/voice-process', {
         method: 'POST',
@@ -57,17 +59,25 @@ export default function Home() {
         body: JSON.stringify({ query: transcript })
       });
       
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
       const result = await response.json();
+      console.log('Voice processing result:', result);
       
       switch (result.action) {
         case 'search':
           setProducts(result.products || []);
           setSearchQuery(result.query || transcript);
           setCurrentView('search');
+          console.log('Showing search results for:', result.query);
           break;
         case 'show_product':
-          setSelectedProduct(result.product);
-          setCurrentView('detail');
+          if (result.product) {
+            setSelectedProduct(result.product);
+            setCurrentView('detail');
+          }
           break;
         case 'compare':
           setCompareProducts(result.products || []);
@@ -78,9 +88,19 @@ export default function Home() {
             setCart(prev => [...prev, result.product]);
           }
           break;
+        default:
+          // Default to search if no specific action
+          setProducts(result.products || []);
+          setSearchQuery(transcript);
+          setCurrentView('search');
+          console.log('Default search for:', transcript);
       }
     } catch (error) {
       console.error('Voice command processing error:', error);
+      // Fallback: treat as search query
+      console.log('Fallback: treating as search query');
+      setSearchQuery(transcript);
+      setCurrentView('search');
     }
   };
 
