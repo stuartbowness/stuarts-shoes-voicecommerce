@@ -1,20 +1,31 @@
 'use client';
 import { useLayercodePipeline } from '@layercode/react-sdk';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface VoiceConsoleProps {
   onCommand: (text: string) => void;
 }
 
 export function VoiceConsole({ onCommand }: VoiceConsoleProps) {
+  const hasInitialized = useRef(false);
+  
   const { agentAudioAmplitude, status } = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/authorize',
     onDataMessage: (data) => {
-      if (data.transcript) {
+      if (data.transcript && !hasInitialized.current) {
         onCommand(data.transcript);
+        hasInitialized.current = true;
+        // Reset after a short delay to allow new commands
+        setTimeout(() => {
+          hasInitialized.current = false;
+        }, 2000);
       }
     },
+    // Prevent audio feedback
+    enableMicrophone: true,
+    enableSpeaker: true,
   });
 
   const getStatusDisplay = () => {

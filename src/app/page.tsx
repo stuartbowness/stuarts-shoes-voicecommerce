@@ -102,8 +102,6 @@ export default function Home() {
       </main>
 
       <VoiceConsole onCommand={handleVoiceCommand} />
-      <VoiceDebug />
-      <AuthTest />
     </div>
   );
 }
