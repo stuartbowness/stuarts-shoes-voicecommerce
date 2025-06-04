@@ -62,3 +62,5 @@ function AudioBars({ amplitude }: { amplitude: number }) {
     </div>
   );
 }
+
+export default VoiceConsole;

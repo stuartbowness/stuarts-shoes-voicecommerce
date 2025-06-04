@@ -1,11 +1,26 @@
 'use client';
 import { useState } from 'react';
-import { VoiceConsole } from '@/components/VoiceConsole';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/Header';
 import { Hero } from '@/components/Hero';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductComparison } from '@/components/ProductComparison';
+
+// Dynamically import VoiceConsole to avoid SSR issues
+const VoiceConsole = dynamic(() => import('@/components/VoiceConsole'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+      <div className="bg-white rounded-full shadow-lg border border-gray-200 px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 bg-gray-300 rounded-full animate-pulse"></div>
+          <span className="text-sm font-medium text-gray-700">Loading voice...</span>
+        </div>
+      </div>
+    </div>
+  )
+});
 
 type View = 'home' | 'search' | 'detail' | 'compare';
 
