@@ -22,10 +22,13 @@ export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
     const signature = request.headers.get('layercode-signature');
+    const timestamp = new Date().toISOString();
     
-    console.log('🎯 LayerCode webhook received');
-    console.log('📝 Raw body:', rawBody);
+    console.log(`🎯 LayerCode webhook received at ${timestamp}`);
+    console.log('📝 Raw body length:', rawBody.length);
+    console.log('📝 Raw body content:', rawBody);
     console.log('🔐 Signature:', signature);
+    console.log('📊 Headers:', Object.fromEntries(request.headers.entries()));
     
     // Verify webhook signature
     if (signature && !verifySignature(rawBody, signature)) {

@@ -16,12 +16,16 @@ export async function GET() {
     // HuggingFace
     hasHuggingFaceApiKey: !!process.env.HUGGINGFACE_API_KEY,
     
+    // Anthropic
+    hasAnthropicApiKey: !!process.env.ANTHROPIC_API_KEY,
+    
     // Environment summary
     envKeysFound: Object.keys(process.env).filter(key => 
       key.includes('LAYERCODE') || 
       key.includes('BIGCOMMERCE') || 
       key.includes('PINECONE') ||
-      key.includes('HUGGINGFACE')
+      key.includes('HUGGINGFACE') ||
+      key.includes('ANTHROPIC')
     )
   });
 }

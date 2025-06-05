@@ -11,6 +11,8 @@ interface VoiceConsoleProps {
 export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProps) {
   const [transcript, setTranscript] = useState('');
   const [audioDebug, setAudioDebug] = useState('');
+  const [connectionDebug, setConnectionDebug] = useState('');
+  const [lastWebhookCheck, setLastWebhookCheck] = useState('');
   const lastProcessedTime = useRef(0);
   const lastProcessedTranscript = useRef<string>('');
 
@@ -45,21 +47,28 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
   }, []);
   
   
-  // Poll for LayerCode webhook transcripts
+  // Poll for LayerCode webhook transcripts with enhanced debugging
   useEffect(() => {
     const pollForTranscript = async () => {
       try {
         const response = await fetch('/api/latest-transcript');
         const data = await response.json();
         
+        setLastWebhookCheck(new Date().toLocaleTimeString());
+        
         if (data.transcript && data.transcript !== lastProcessedTranscript.current) {
           console.log('🎯 Got LayerCode webhook transcript:', data.transcript);
           lastProcessedTranscript.current = data.transcript;
           setTranscript(data.transcript);
           onCommand(data.transcript);
+        } else if (data.transcript) {
+          console.log('⏭️ Skipping duplicate transcript:', data.transcript);
+        } else {
+          console.log('📭 No new transcript available');
         }
       } catch (error) {
         console.error('❌ Error polling for transcript:', error);
+        setLastWebhookCheck(`Error: ${error.message}`);
       }
     };
     
@@ -105,6 +114,7 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
     },
     onStatusChange: (newStatus) => {
       console.log('📊 LayerCode status changed to:', newStatus);
+      setConnectionDebug(`Status: ${newStatus} at ${new Date().toLocaleTimeString()}`);
     },
     onAudioStart: () => {
       console.log('🔊 Audio output started');
@@ -201,6 +211,25 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
           >
             Browser Beep
           </button>
+          <button 
+            onClick={async () => {
+              try {
+                console.log('🧪 Testing Claude API...');
+                const response = await fetch('/api/voice-process', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ query: 'hello' })
+                });
+                const result = await response.json();
+                console.log('✅ Claude API test result:', result);
+              } catch (error) {
+                console.error('❌ Claude API test failed:', error);
+              }
+            }}
+            className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Test Claude
+          </button>
           <div className="flex items-center gap-1 text-xs">
             <span>Vol:</span>
             <input
@@ -227,6 +256,19 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
               Audio: {audioDebug}
             </div>
           )}
+          {connectionDebug && (
+            <div className="bg-yellow-50 p-1 rounded">
+              {connectionDebug}
+            </div>
+          )}
+          {lastWebhookCheck && (
+            <div className="bg-purple-50 p-1 rounded">
+              Webhook: {lastWebhookCheck}
+            </div>
+          )}
+          <div className="bg-green-50 p-1 rounded">
+            Pipeline: {process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID || 'NOT SET'}
+          </div>
           {transcript && (
             <div className="bg-gray-100 p-1 rounded">
               Last: {transcript}
