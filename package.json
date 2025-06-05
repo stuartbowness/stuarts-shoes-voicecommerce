@@ -11,6 +11,7 @@
     "test-bigcommerce": "tsx src/scripts/test-bigcommerce.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
     "@layercode/react-sdk": "^1.0.21",
     "@pinecone-database/pinecone": "^6.1.0",
     "dotenv": "^16.5.0",

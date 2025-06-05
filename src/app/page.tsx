@@ -69,8 +69,9 @@ export default function Home() {
       const result = await response.json();
       console.log('🔄 Voice processing result:', result);
       
-      // Generate voice response based on action
+      // Generate intelligent voice response using Claude's analysis
       let voiceResponse = '';
+      const tone = result.response_tone || 'friendly';
       
       switch (result.action) {
         case 'search':
@@ -79,37 +80,60 @@ export default function Home() {
           setSearchQuery(result.query || transcript);
           setCurrentView('search');
           const productCount = result.products?.length || 0;
-          voiceResponse = `I found ${productCount} products for ${result.query || transcript}. Let me show you the results.`;
+          
+          if (tone === 'enthusiastic') {
+            voiceResponse = `Great choice! I found ${productCount} amazing ${result.query || transcript} for you. Let me show you what we have!`;
+          } else if (productCount === 0) {
+            voiceResponse = `I couldn't find any products matching "${result.query || transcript}". Would you like to try a different search?`;
+          } else {
+            voiceResponse = `Perfect! I found ${productCount} ${result.query || transcript} that match what you're looking for. Take a look at these options.`;
+          }
           console.log('✅ Search view set');
           break;
+          
         case 'show_product':
           if (result.product) {
             console.log('📱 Setting detail view for product:', result.product.name);
             setSelectedProduct(result.product);
             setCurrentView('detail');
-            voiceResponse = `Here are the details for ${result.product.name}. It's priced at $${result.product.price}.`;
+            voiceResponse = `Here's ${result.product.name}. It's ${result.product.price} dollars. Let me show you all the details.`;
+          } else {
+            voiceResponse = `I couldn't find that specific product. Would you like me to search for similar items?`;
           }
           break;
+          
         case 'compare':
           console.log('⚖️ Setting compare view with products:', result.products?.length || 0);
           setCompareProducts(result.products || []);
           setCurrentView('compare');
           const compareCount = result.products?.length || 0;
-          voiceResponse = `I'm comparing ${compareCount} products for you. Let me show you the differences.`;
+          if (compareCount >= 2) {
+            voiceResponse = `Great! I'm comparing ${compareCount} products side by side to help you decide.`;
+          } else {
+            voiceResponse = `I found ${compareCount} product to compare. Let me search for more similar options.`;
+          }
           break;
+          
         case 'add_to_cart':
           if (result.product) {
             console.log('🛒 Adding to cart:', result.product.name);
             setCart(prev => [...prev, result.product]);
-            voiceResponse = `I've added ${result.product.name} to your cart.`;
+            voiceResponse = `Perfect! I've added ${result.product.name} to your cart. Anything else you'd like to add?`;
+          } else {
+            voiceResponse = `I need you to select a specific product first before I can add it to your cart.`;
           }
           break;
+          
+        case 'greeting':
+          voiceResponse = `Hello! I'm your personal shoe shopping assistant. I can help you find the perfect shoes, compare options, or answer any questions. What are you looking for today?`;
+          break;
+          
         default:
           console.log('🔍 Default search for:', transcript);
           setProducts(result.products || []);
           setSearchQuery(transcript);
           setCurrentView('search');
-          voiceResponse = `Let me search for ${transcript}.`;
+          voiceResponse = `Let me search for ${transcript} and see what I can find for you.`;
           console.log('✅ Default search view set');
       }
       
