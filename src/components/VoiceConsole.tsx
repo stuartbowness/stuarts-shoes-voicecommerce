@@ -10,8 +10,39 @@ interface VoiceConsoleProps {
 
 export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProps) {
   const [transcript, setTranscript] = useState('');
+  const [audioDebug, setAudioDebug] = useState('');
   const lastProcessedTime = useRef(0);
   const lastProcessedTranscript = useRef<string>('');
+
+  // Check browser audio support
+  useEffect(() => {
+    const checkAudioSupport = () => {
+      const info = [];
+      
+      if (!window.AudioContext && !(window as any).webkitAudioContext) {
+        info.push('❌ No Web Audio API');
+      } else {
+        info.push('✅ Web Audio API');
+      }
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        info.push('❌ No MediaDevices API');
+      } else {
+        info.push('✅ MediaDevices API');
+      }
+      
+      // Check if we're in a secure context (required for audio)
+      if (!window.isSecureContext) {
+        info.push('❌ Not secure context (HTTPS required)');
+      } else {
+        info.push('✅ Secure context');
+      }
+      
+      setAudioDebug(info.join(' | '));
+    };
+    
+    checkAudioSupport();
+  }, []);
   
   
   // Poll for LayerCode webhook transcripts
@@ -38,7 +69,7 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
     return () => clearInterval(interval);
   }, [onCommand]);
   
-  const { agentAudioAmplitude, status, sendMessage } = useLayercodePipeline({
+  const { agentAudioAmplitude, status, sendMessage, speakerVolume, setSpeakerVolume } = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/authorize',
     onDataMessage: (data) => {
@@ -75,9 +106,16 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
     onStatusChange: (newStatus) => {
       console.log('📊 LayerCode status changed to:', newStatus);
     },
+    onAudioStart: () => {
+      console.log('🔊 Audio output started');
+    },
+    onAudioEnd: () => {
+      console.log('🔊 Audio output ended');
+    },
     enableMicrophone: true,
     enableSpeaker: true,
     webhookUrl: '/api/layercode-webhook',
+    speakerVolume: 1.0,
   });
 
   // Pass sendMessage function to parent when it's ready
@@ -112,7 +150,7 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
           <span className="text-sm font-medium text-gray-700">{text}</span>
           <AudioBars amplitude={agentAudioAmplitude} />
         </div>
-        <div className="flex gap-1 mt-2 flex-wrap">
+        <div className="flex gap-1 mt-2 flex-wrap items-center">
           <button 
             onClick={() => {
               console.log('🧪 Manual voice test triggered');
@@ -125,8 +163,9 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
           <button 
             onClick={() => {
               if (sendMessage) {
-                console.log('🧪 Testing LayerCode TTS');
-                sendMessage("LayerCode text to speech is working correctly.");
+                console.log('🧪 Testing LayerCode TTS with volume:', speakerVolume);
+                console.log('🔊 Speaker enabled, volume max');
+                sendMessage("Hello! I can hear you and I'm responding with audio. This is a test of the LayerCode text to speech system.");
               } else {
                 console.log('❌ sendMessage not available');
               }
@@ -135,12 +174,65 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
           >
             Test TTS
           </button>
-        </div>
-        {transcript && (
-          <div className="text-xs text-gray-600 mt-1 bg-gray-100 p-1 rounded">
-            Last: {transcript}
+          <button 
+            onClick={() => {
+              // Test browser audio with a simple beep
+              try {
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                console.log('🔊 Browser audio test: beep played');
+              } catch (error) {
+                console.error('❌ Browser audio test failed:', error);
+              }
+            }}
+            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Browser Beep
+          </button>
+          <div className="flex items-center gap-1 text-xs">
+            <span>Vol:</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={speakerVolume || 1}
+              onChange={(e) => {
+                const vol = parseFloat(e.target.value);
+                console.log('🔊 Setting volume to:', vol);
+                if (setSpeakerVolume) {
+                  setSpeakerVolume(vol);
+                }
+              }}
+              className="w-16"
+            />
+            <span className="w-8 text-right">{Math.round((speakerVolume || 1) * 100)}%</span>
           </div>
-        )}
+        </div>
+        <div className="text-xs text-gray-600 mt-1 space-y-1">
+          {audioDebug && (
+            <div className="bg-blue-50 p-1 rounded">
+              Audio: {audioDebug}
+            </div>
+          )}
+          {transcript && (
+            <div className="bg-gray-100 p-1 rounded">
+              Last: {transcript}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
