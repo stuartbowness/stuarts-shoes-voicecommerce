@@ -1,80 +1,115 @@
-import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { NextRequest } from 'next/server';
+import { handleLayerCodeWebhook } from '@layercode/node-server-sdk';
+import Anthropic from '@anthropic-ai/sdk';
+import { searchProducts } from '@/lib/bigcommerce';
 
-const WEBHOOK_SECRET = 'nk1w6dt7i6jg2i8fk1yg79cq';
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
 
-function verifySignature(body: string, signature: string): boolean {
-  try {
-    const [timestamp, hash] = signature.split(',').map(part => part.split('=')[1]);
-    const expectedSignature = crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
-      .update(timestamp + '.' + body)
-      .digest('hex');
-    
-    return hash === expectedSignature;
-  } catch (error) {
-    console.error('❌ Signature verification failed:', error);
-    return false;
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const rawBody = await request.text();
-    const signature = request.headers.get('layercode-signature');
-    const timestamp = new Date().toISOString();
-    
-    console.log(`🎯 LayerCode webhook received at ${timestamp}`);
-    console.log('📝 Raw body length:', rawBody.length);
-    console.log('📝 Raw body content:', rawBody);
-    console.log('🔐 Signature:', signature);
-    console.log('📊 Headers:', Object.fromEntries(request.headers.entries()));
-    
-    // Verify webhook signature
-    if (signature && !verifySignature(rawBody, signature)) {
-      console.error('❌ Invalid webhook signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-    
-    const body = JSON.parse(rawBody);
-    console.log('✅ Parsed body:', body);
-    
-    // Extract transcript from LayerCode webhook
-    if (body.text && body.type === 'message') {
-      console.log('📝 User transcript:', body.text);
+// LayerCode webhook handler
+export async function POST(request: NextRequest) {
+  return handleLayerCodeWebhook(
+    request,
+    process.env.LAYERCODE_API_KEY!,
+    async (message) => {
+      console.log('🎯 LayerCode message received:', message);
       
-      // Store the transcript temporarily (in production, use Redis/database)
-      // For now, we'll use a simple in-memory store
-      global.latestTranscript = {
-        text: body.text,
-        timestamp: Date.now(),
-        session_id: body.session_id || 'unknown',
-        turn_id: body.turn_id || 'unknown'
-      };
-      
-      console.log('💾 Stored transcript:', global.latestTranscript);
-    }
-    
-    // Return success to LayerCode - this allows LayerCode to continue processing
-    return NextResponse.json({ 
-      received: true,
-      processed: !!body.text 
-    });
-    
-  } catch (error) {
-    console.error('❌ LayerCode webhook error:', error);
-    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 });
-  }
-}
+      if (message.type !== 'user_message') {
+        console.log('⏭️ Skipping non-user message:', message.type);
+        return null;
+      }
 
-// Handle preflight OPTIONS request
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, layercode-signature',
-    },
-  });
+      const userQuery = message.text;
+      console.log('🎙️ Processing user query:', userQuery);
+
+      try {
+        // Step 1: Use Claude to understand intent and generate search
+        const intentResponse = await anthropic.messages.create({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: `You are a voice shopping assistant for Stuart's Shoes, an online shoe store.
+
+User said: "${userQuery}"
+
+Analyze this and respond with a JSON object containing:
+1. "search_query" - what to search for (if applicable)
+2. "intent" - the user's intent (search, greeting, help, etc.)
+3. "response" - a natural, conversational response to speak back to the user
+
+Example responses:
+- For "show me running shoes": {"search_query": "running shoes", "intent": "search", "response": "I'll find some great running shoes for you!"}
+- For "hello": {"search_query": null, "intent": "greeting", "response": "Hello! Welcome to Stuart's Shoes. How can I help you find the perfect pair today?"}
+
+Respond with ONLY the JSON object, no other text.`
+          }]
+        });
+
+        const claudeText = intentResponse.content[0].type === 'text' ? intentResponse.content[0].text : '';
+        console.log('🤖 Claude intent response:', claudeText);
+
+        let analysis;
+        try {
+          analysis = JSON.parse(claudeText);
+        } catch (parseError) {
+          console.error('❌ Failed to parse Claude response, using fallback');
+          analysis = {
+            search_query: userQuery,
+            intent: 'search',
+            response: `Let me search for ${userQuery} for you.`
+          };
+        }
+
+        // Step 2: If search is needed, get products
+        let searchResults = null;
+        if (analysis.search_query && analysis.intent === 'search') {
+          console.log('🔍 Searching for products:', analysis.search_query);
+          try {
+            searchResults = await searchProducts(analysis.search_query);
+            console.log('📦 Found products:', searchResults?.length || 0);
+            
+            // Update response based on search results
+            if (searchResults && searchResults.length > 0) {
+              analysis.response = `Great! I found ${searchResults.length} ${analysis.search_query} for you. Let me show you the options.`;
+            } else {
+              analysis.response = `I couldn't find any ${analysis.search_query} right now. Would you like to try a different search?`;
+            }
+          } catch (searchError) {
+            console.error('❌ Product search failed:', searchError);
+            analysis.response = `I'm having trouble searching right now. Let me try to help you differently.`;
+          }
+        }
+
+        // Step 3: Generate final enhanced response
+        const finalResponse = await anthropic.messages.create({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 500,
+          messages: [{
+            role: 'user',
+            content: `You are a friendly voice shopping assistant for Stuart's Shoes.
+
+User said: "${userQuery}"
+Initial response: "${analysis.response}"
+Products found: ${searchResults ? searchResults.length : 0}
+
+Enhance this response to be more natural and conversational for voice. Keep it under 50 words and sound enthusiastic about helping with shoes.
+
+Respond with ONLY the enhanced text, no JSON or other formatting.`
+          }]
+        });
+
+        const finalText = finalResponse.content[0].type === 'text' ? finalResponse.content[0].text : analysis.response;
+        console.log('🔊 Final TTS response:', finalText);
+
+        // Return the response that LayerCode will convert to speech
+        return finalText;
+
+      } catch (error) {
+        console.error('❌ Error processing LayerCode message:', error);
+        return "I'm sorry, I'm having trouble processing your request right now. Please try again.";
+      }
+    }
+  );
 }

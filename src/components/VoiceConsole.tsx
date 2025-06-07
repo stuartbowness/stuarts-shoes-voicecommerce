@@ -47,36 +47,10 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
   }, []);
   
   
-  // Poll for LayerCode webhook transcripts with enhanced debugging
+  // LayerCode webhook now handles responses directly, so we just monitor connection
   useEffect(() => {
-    const pollForTranscript = async () => {
-      try {
-        const response = await fetch('/api/latest-transcript');
-        const data = await response.json();
-        
-        setLastWebhookCheck(new Date().toLocaleTimeString());
-        
-        if (data.transcript && data.transcript !== lastProcessedTranscript.current) {
-          console.log('🎯 Got LayerCode webhook transcript:', data.transcript);
-          lastProcessedTranscript.current = data.transcript;
-          setTranscript(data.transcript);
-          onCommand(data.transcript);
-        } else if (data.transcript) {
-          console.log('⏭️ Skipping duplicate transcript:', data.transcript);
-        } else {
-          console.log('📭 No new transcript available');
-        }
-      } catch (error) {
-        console.error('❌ Error polling for transcript:', error);
-        setLastWebhookCheck(`Error: ${error.message}`);
-      }
-    };
-    
-    // Poll every 500ms when LayerCode is connected
-    const interval = setInterval(pollForTranscript, 500);
-    
-    return () => clearInterval(interval);
-  }, [onCommand]);
+    setLastWebhookCheck('Direct webhook integration - no polling needed');
+  }, []);
   
   const { agentAudioAmplitude, status, sendMessage, speakerVolume, setSpeakerVolume } = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
@@ -85,28 +59,12 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
       console.log('🔊 LayerCode data received:', data);
       console.log('🔊 Data type:', typeof data, 'Keys:', Object.keys(data));
       
-      // Prevent duplicate processing
-      const now = Date.now();
-      if (now - lastProcessedTime.current < 1000) {
-        console.log('⏱️ Skipping duplicate within 1 second');
-        return;
-      }
-      
-      // Try different possible transcript fields
+      // The webhook now handles all processing, so we just log the data
       const transcript = data.transcript || data.text || data.message || data.content || data.user_input;
       
       if (transcript && transcript.trim()) {
-        console.log('✅ Found transcript:', transcript);
-        console.log('📞 Calling onCommand with:', transcript);
-        lastProcessedTime.current = now;
-        try {
-          onCommand(transcript.trim());
-          console.log('✅ onCommand called successfully');
-        } catch (error) {
-          console.error('❌ Error calling onCommand:', error);
-        }
-      } else {
-        console.log('❌ No transcript found in data. Full data:', JSON.stringify(data, null, 2));
+        console.log('✅ Voice input detected:', transcript);
+        setTranscript(transcript.trim());
       }
     },
     onError: (error) => {
