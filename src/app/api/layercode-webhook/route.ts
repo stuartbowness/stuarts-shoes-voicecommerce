@@ -1,5 +1,4 @@
-import { NextRequest } from 'next/server';
-import { handleLayerCodeWebhook } from '@layercode/node-server-sdk';
+import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { searchProducts } from '@/lib/bigcommerce';
 
@@ -7,24 +6,20 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-// LayerCode webhook handler
-export async function POST(request: NextRequest) {
-  return handleLayerCodeWebhook(
-    request,
-    process.env.LAYERCODE_API_KEY!,
-    async (message) => {
-      console.log('🎯 LayerCode message received:', message);
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const timestamp = new Date().toISOString();
+    
+    console.log(`🎯 LayerCode webhook received at ${timestamp}`, body);
+    
+    // Handle user messages
+    if (body.type === 'user_message' && body.text) {
+      const userQuery = body.text;
+      console.log('🎙️ Processing user message:', userQuery);
       
-      if (message.type !== 'user_message') {
-        console.log('⏭️ Skipping non-user message:', message.type);
-        return null;
-      }
-
-      const userQuery = message.text;
-      console.log('🎙️ Processing user query:', userQuery);
-
       try {
-        // Step 1: Use Claude to understand intent and generate search
+        // Step 1: Use Claude to understand intent
         const intentResponse = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 1000,
@@ -35,7 +30,7 @@ export async function POST(request: NextRequest) {
 User said: "${userQuery}"
 
 Analyze this and respond with a JSON object containing:
-1. "search_query" - what to search for (if applicable)
+1. "search_query" - what to search for (if applicable)  
 2. "intent" - the user's intent (search, greeting, help, etc.)
 3. "response" - a natural, conversational response to speak back to the user
 
@@ -72,7 +67,7 @@ Respond with ONLY the JSON object, no other text.`
             
             // Update response based on search results
             if (searchResults && searchResults.length > 0) {
-              analysis.response = `Great! I found ${searchResults.length} ${analysis.search_query} for you. Let me show you the options.`;
+              analysis.response = `Perfect! I found ${searchResults.length} ${analysis.search_query} for you. Let me show you the options.`;
             } else {
               analysis.response = `I couldn't find any ${analysis.search_query} right now. Would you like to try a different search?`;
             }
@@ -85,7 +80,7 @@ Respond with ONLY the JSON object, no other text.`
         // Step 3: Generate final enhanced response
         const finalResponse = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 500,
+          max_tokens: 300,
           messages: [{
             role: 'user',
             content: `You are a friendly voice shopping assistant for Stuart's Shoes.
@@ -94,7 +89,7 @@ User said: "${userQuery}"
 Initial response: "${analysis.response}"
 Products found: ${searchResults ? searchResults.length : 0}
 
-Enhance this response to be more natural and conversational for voice. Keep it under 50 words and sound enthusiastic about helping with shoes.
+Enhance this response to be more natural and conversational for voice. Keep it under 40 words and sound enthusiastic about helping with shoes.
 
 Respond with ONLY the enhanced text, no JSON or other formatting.`
           }]
@@ -103,13 +98,31 @@ Respond with ONLY the enhanced text, no JSON or other formatting.`
         const finalText = finalResponse.content[0].type === 'text' ? finalResponse.content[0].text : analysis.response;
         console.log('🔊 Final TTS response:', finalText);
 
-        // Return the response that LayerCode will convert to speech
-        return finalText;
+        // Return response in LayerCode format
+        return NextResponse.json({
+          type: 'agent_message',
+          text: finalText,
+          timestamp: Date.now()
+        });
 
       } catch (error) {
-        console.error('❌ Error processing LayerCode message:', error);
-        return "I'm sorry, I'm having trouble processing your request right now. Please try again.";
+        console.error('❌ Error processing message:', error);
+        return NextResponse.json({
+          type: 'agent_message', 
+          text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
+          timestamp: Date.now()
+        });
       }
     }
-  );
+    
+    // For non-user messages, just acknowledge
+    return NextResponse.json({ 
+      received: true,
+      processed: !!body.text 
+    });
+    
+  } catch (error) {
+    console.error('❌ LayerCode webhook error:', error);
+    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 });
+  }
 }
