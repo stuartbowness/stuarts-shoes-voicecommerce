@@ -57,31 +57,33 @@ export async function GET() {
       });
 
     } catch (directError) {
-      console.log('❌ Direct API failed, trying SDK...');
+      console.log('❌ Direct API failed, trying SDK...', directError.message);
       
       const anthropic = new Anthropic({
         apiKey: apiKey,
       });
 
-    // Simple test request
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 100,
-      messages: [{
-        role: 'user',
-        content: 'Say "Hello from Claude! The API is working correctly." and nothing else.'
-      }]
-    });
+      // Simple test request
+      const response = await anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: 'Say "Hello from Claude! The API is working correctly." and nothing else.'
+        }]
+      });
 
-    const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
+      const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    return NextResponse.json({
-      success: true,
-      hasKey: true,
-      claudeResponse: responseText,
-      usage: response.usage,
-      model: response.model
-    });
+      return NextResponse.json({
+        success: true,
+        method: 'sdk',
+        hasKey: true,
+        claudeResponse: responseText,
+        usage: response.usage,
+        model: response.model
+      });
+    }
 
   } catch (error) {
     console.error('❌ Claude API test failed:', error);
@@ -89,7 +91,10 @@ export async function GET() {
     return NextResponse.json({
       error: error.message,
       hasKey: !!process.env.ANTHROPIC_API_KEY,
-      errorType: error.constructor.name
+      errorType: error.constructor.name,
+      keyFormat: process.env.ANTHROPIC_API_KEY ? 
+        `${process.env.ANTHROPIC_API_KEY.substring(0, 15)}...${process.env.ANTHROPIC_API_KEY.substring(-5)}` : 
+        'no key'
     }, { status: 500 });
   }
 }
