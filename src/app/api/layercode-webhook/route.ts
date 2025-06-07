@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { streamResponse } from '@layercode/node-server-sdk';
 import Anthropic from '@anthropic-ai/sdk';
 import { searchProducts } from '@/lib/bigcommerce';
 
@@ -6,17 +6,29 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
+const WELCOME_MESSAGE = "Hello! I'm your personal shoe shopping assistant at Stuart's Shoes. I can help you find the perfect pair of shoes. What are you looking for today?";
+
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const timestamp = new Date().toISOString();
+  const requestBody = await request.json();
+  
+  return streamResponse(requestBody, async ({ stream }) => {
+    console.log('🎯 LayerCode webhook received:', requestBody);
     
-    console.log(`🎯 LayerCode webhook received at ${timestamp}`, body);
+    // Handle session start
+    if (requestBody.type === 'session.start') {
+      console.log('🎬 Session starting - sending welcome message');
+      stream.tts(WELCOME_MESSAGE);
+      stream.end();
+      return;
+    }
     
     // Handle user messages
-    if (body.type === 'user_message' && body.text) {
-      const userQuery = body.text;
+    if (requestBody.type === 'message' && requestBody.text) {
+      const userQuery = requestBody.text;
       console.log('🎙️ Processing user message:', userQuery);
+      
+      // Stream that we're thinking
+      stream.data({ aiIsThinking: true });
       
       try {
         // Step 1: Use Claude to understand intent
@@ -61,9 +73,20 @@ Respond with ONLY the JSON object, no other text.`
         let searchResults = null;
         if (analysis.search_query && analysis.intent === 'search') {
           console.log('🔍 Searching for products:', analysis.search_query);
+          
+          // Stream search status
+          stream.data({ searching: true, query: analysis.search_query });
+          
           try {
             searchResults = await searchProducts(analysis.search_query);
             console.log('📦 Found products:', searchResults?.length || 0);
+            
+            // Stream search results
+            stream.data({ 
+              searchComplete: true, 
+              productsFound: searchResults?.length || 0,
+              products: searchResults?.slice(0, 6) // Send first 6 products
+            });
             
             // Update response based on search results
             if (searchResults && searchResults.length > 0) {
@@ -74,6 +97,7 @@ Respond with ONLY the JSON object, no other text.`
           } catch (searchError) {
             console.error('❌ Product search failed:', searchError);
             analysis.response = `I'm having trouble searching right now. Let me try to help you differently.`;
+            stream.data({ searchError: true });
           }
         }
 
@@ -98,31 +122,25 @@ Respond with ONLY the enhanced text, no JSON or other formatting.`
         const finalText = finalResponse.content[0].type === 'text' ? finalResponse.content[0].text : analysis.response;
         console.log('🔊 Final TTS response:', finalText);
 
-        // Return response in LayerCode format
-        return NextResponse.json({
-          type: 'agent_message',
-          text: finalText,
-          timestamp: Date.now()
-        });
+        // Stream thinking is done
+        stream.data({ aiIsThinking: false });
+        
+        // Stream the text-to-speech response
+        stream.tts(finalText);
 
       } catch (error) {
         console.error('❌ Error processing message:', error);
-        return NextResponse.json({
-          type: 'agent_message', 
-          text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
-          timestamp: Date.now()
-        });
+        stream.data({ aiIsThinking: false, error: true });
+        stream.tts("I'm sorry, I'm having trouble processing your request right now. Please try again.");
       }
+      
+      // End the stream
+      stream.end();
+      return;
     }
     
-    // For non-user messages, just acknowledge
-    return NextResponse.json({ 
-      received: true,
-      processed: !!body.text 
-    });
-    
-  } catch (error) {
-    console.error('❌ LayerCode webhook error:', error);
-    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 });
-  }
+    // For other message types, just acknowledge
+    console.log('⏭️ Unhandled message type:', requestBody.type);
+    stream.end();
+  });
 }
