@@ -48,7 +48,10 @@ Analyze this and respond with a JSON object containing:
 
 Example responses:
 - For "show me running shoes": {"search_query": "running shoes", "intent": "search", "response": "I'll find some great running shoes for you!"}
-- For "hello": {"search_query": null, "intent": "greeting", "response": "Hello! Welcome to Stuart's Shoes. How can I help you find the perfect pair today?"}
+- For "hello" or first greeting: {"search_query": null, "intent": "greeting", "response": "Hi there! How can I help you find the perfect pair today?"}
+- For subsequent searches: {"search_query": "boots", "intent": "search", "response": "Let me search for boots for you!"}
+
+IMPORTANT: Do NOT start responses with "Hello" unless the user is greeting you for the first time. For product searches and follow-up questions, jump straight into helping.
 
 Respond with ONLY the JSON object, no other text.`
           }]
@@ -114,6 +117,8 @@ Initial response: "${analysis.response}"
 Products found: ${searchResults ? searchResults.length : 0}
 
 Enhance this response to be more natural and conversational for voice. Keep it under 40 words and sound enthusiastic about helping with shoes.
+
+IMPORTANT: Do NOT add "Hello" or greetings to the start of your response unless the initial response was specifically a greeting. For product searches, jump straight into the results or search action.
 
 Respond with ONLY the enhanced text, no JSON or other formatting.`
           }]
