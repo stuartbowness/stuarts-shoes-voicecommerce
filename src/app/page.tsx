@@ -55,6 +55,23 @@ export default function Home() {
     console.log('🎙️ Voice command received:', transcript);
     console.log('📊 Current view before processing:', currentView);
     
+    // Handle special commands from LayerCode data stream
+    if (transcript.startsWith('search:')) {
+      try {
+        const productsJson = transcript.replace('search:', '');
+        const products = JSON.parse(productsJson);
+        console.log('🔍 Direct product update from LayerCode:', products);
+        
+        setProducts(products || []);
+        setSearchQuery('Voice search results');
+        setCurrentView('search');
+        return;
+      } catch (error) {
+        console.error('❌ Failed to parse products from LayerCode:', error);
+        return;
+      }
+    }
+    
     try {
       const response = await fetch('/api/voice-process', {
         method: 'POST',

@@ -59,7 +59,39 @@ export function VoiceConsole({ onCommand, onSendMessageReady }: VoiceConsoleProp
       console.log('🔊 LayerCode data received:', data);
       console.log('🔊 Data type:', typeof data, 'Keys:', Object.keys(data));
       
-      // The webhook now handles all processing, so we just log the data
+      // Handle different types of data from the webhook
+      if (data.searching) {
+        console.log('🔍 AI is searching for:', data.query);
+        setTranscript(`Searching for ${data.query}...`);
+      }
+      
+      if (data.searchComplete && data.products) {
+        console.log('📦 Search completed, found products:', data.productsFound);
+        setTranscript(`Found ${data.productsFound} products`);
+        
+        // Call onCommand to update the UI with products
+        if (onCommand && data.products.length > 0) {
+          console.log('🎯 Updating UI with products');
+          // Trigger search view with the products
+          onCommand(`search:${JSON.stringify(data.products)}`);
+        }
+      }
+      
+      if (data.aiIsThinking === true) {
+        console.log('🤖 AI is thinking...');
+        setTranscript('Processing...');
+      }
+      
+      if (data.aiIsThinking === false) {
+        console.log('🤖 AI finished thinking');
+      }
+      
+      if (data.searchError) {
+        console.log('❌ Search error occurred');
+        setTranscript('Search error');
+      }
+      
+      // Handle voice input transcript
       const transcript = data.transcript || data.text || data.message || data.content || data.user_input;
       
       if (transcript && transcript.trim()) {
