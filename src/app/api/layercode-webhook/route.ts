@@ -8,6 +8,17 @@ const anthropic = new Anthropic({
 
 const WELCOME_MESSAGE = "Hello! I'm your personal shoe shopping assistant at Stuart's Shoes. I can help you find the perfect pair of shoes. What are you looking for today?";
 
+// Simple in-memory session tracking (in production, use Redis/database)
+const welcomedSessions = new Set<string>();
+
+// Clean up old sessions periodically to prevent memory leaks
+setInterval(() => {
+  if (welcomedSessions.size > 1000) {
+    console.log('🧹 Cleaning up old session tracking...');
+    welcomedSessions.clear();
+  }
+}, 60 * 60 * 1000); // Clean every hour
+
 export async function POST(request: Request) {
   const requestBody = await request.json();
   
@@ -16,8 +27,18 @@ export async function POST(request: Request) {
     
     // Handle session start
     if (requestBody.type === 'session.start') {
-      console.log('🎬 Session starting - sending welcome message');
-      stream.tts(WELCOME_MESSAGE);
+      const sessionId = requestBody.session_id || 'unknown';
+      console.log('🎬 Session starting for:', sessionId);
+      
+      // Only send welcome if we haven't welcomed this session yet
+      if (!welcomedSessions.has(sessionId)) {
+        console.log('👋 Sending welcome message for new session');
+        welcomedSessions.add(sessionId);
+        stream.tts(WELCOME_MESSAGE);
+      } else {
+        console.log('⏭️ Session already welcomed, skipping welcome message');
+      }
+      
       stream.end();
       return;
     }

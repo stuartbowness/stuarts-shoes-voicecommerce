@@ -173,18 +173,10 @@ export default function Home() {
     }
   };
 
-  // Send initial greeting when sendMessage becomes available
+  // Handle when sendMessage becomes available (no automatic greeting)
   const handleSendMessageReady = (sendMessageFn: (message: string) => void) => {
     setSendMessage(() => sendMessageFn);
-    
-    // Send greeting after a short delay to ensure connection is ready
-    if (!hasGreeted) {
-      setTimeout(() => {
-        console.log('🎙️ Sending initial greeting');
-        sendMessageFn("Hello! I'm your voice shopping assistant for Stuart's Shoes. How can I help you find the perfect pair today?");
-        setHasGreeted(true);
-      }, 2000);
-    }
+    console.log('🎙️ LayerCode sendMessage ready (webhook handles greetings)');
   };
 
   return (
