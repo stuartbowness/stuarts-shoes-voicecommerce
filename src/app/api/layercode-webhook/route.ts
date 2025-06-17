@@ -52,6 +52,8 @@ export async function POST(request: Request) {
       stream.data({ aiIsThinking: true });
       
       try {
+        console.log('🤖 Step 1: Starting Claude intent analysis for:', userQuery);
+        
         // Step 1: Use Claude to understand intent
         const intentResponse = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
@@ -79,31 +81,34 @@ Respond with ONLY the JSON object, no other text.`
         });
 
         const claudeText = intentResponse.content[0].type === 'text' ? intentResponse.content[0].text : '';
-        console.log('🤖 Claude intent response:', claudeText);
+        console.log('🤖 Step 1 complete - Claude intent response:', claudeText);
 
         let analysis;
         try {
           analysis = JSON.parse(claudeText);
+          console.log('✅ Step 1 success - Parsed analysis:', analysis);
         } catch (parseError) {
-          console.error('❌ Failed to parse Claude response, using fallback');
+          console.error('❌ Step 1 parse error - Failed to parse Claude response:', parseError);
+          console.error('❌ Raw Claude response was:', claudeText);
           analysis = {
             search_query: userQuery,
             intent: 'search',
             response: `Let me search for ${userQuery} for you.`
           };
+          console.log('🔄 Using fallback analysis:', analysis);
         }
 
         // Step 2: If search is needed, get products
         let searchResults = null;
         if (analysis.search_query && analysis.intent === 'search') {
-          console.log('🔍 Searching for products:', analysis.search_query);
+          console.log('🔍 Step 2: Starting product search for:', analysis.search_query);
           
           // Stream search status
           stream.data({ searching: true, query: analysis.search_query });
           
           try {
             searchResults = await searchProducts(analysis.search_query);
-            console.log('📦 Found products:', searchResults?.length || 0);
+            console.log('✅ Step 2 success - Found products:', searchResults?.length || 0);
             
             // Stream search results
             stream.data({ 
@@ -119,12 +124,21 @@ Respond with ONLY the JSON object, no other text.`
               analysis.response = `I couldn't find any ${analysis.search_query} right now. Would you like to try a different search?`;
             }
           } catch (searchError) {
-            console.error('❌ Product search failed:', searchError);
+            console.error('❌ Step 2 error - Product search failed:', searchError);
+            console.error('❌ Search error details:', {
+              message: searchError.message,
+              stack: searchError.stack,
+              query: analysis.search_query
+            });
             analysis.response = `I'm having trouble searching right now. Let me try to help you differently.`;
-            stream.data({ searchError: true });
+            stream.data({ searchError: true, searchErrorDetails: searchError.message });
           }
+        } else {
+          console.log('⏭️ Step 2 skipped - No search needed for intent:', analysis.intent);
         }
 
+        console.log('🤖 Step 3: Starting final response enhancement');
+        
         // Step 3: Generate final enhanced response
         const finalResponse = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
@@ -146,18 +160,38 @@ Respond with ONLY the enhanced text, no JSON or other formatting.`
         });
 
         const finalText = finalResponse.content[0].type === 'text' ? finalResponse.content[0].text : analysis.response;
-        console.log('🔊 Final TTS response:', finalText);
+        console.log('✅ Step 3 success - Final TTS response:', finalText);
 
         // Stream thinking is done
         stream.data({ aiIsThinking: false });
         
+        console.log('🔊 Step 4: Streaming TTS response');
+        
         // Stream the text-to-speech response
         stream.tts(finalText);
+        
+        console.log('✅ All steps completed successfully');
 
       } catch (error) {
         console.error('❌ Error processing message:', error);
-        stream.data({ aiIsThinking: false, error: true });
-        stream.tts("I'm sorry, I'm having trouble processing your request right now. Please try again.");
+        console.error('❌ Error details:', {
+          message: error.message,
+          stack: error.stack,
+          userQuery,
+          timestamp: new Date().toISOString()
+        });
+        
+        stream.data({ aiIsThinking: false, error: true, errorDetails: error.message });
+        
+        // More specific error message based on error type
+        let errorMessage = "I'm sorry, I'm having trouble processing your request right now. Please try again.";
+        if (error.message?.includes('anthropic') || error.message?.includes('claude')) {
+          errorMessage = "I'm having trouble with my AI processing. Please try again in a moment.";
+        } else if (error.message?.includes('search') || error.message?.includes('products')) {
+          errorMessage = "I'm having trouble searching for products right now. Please try again.";
+        }
+        
+        stream.tts(errorMessage);
       }
       
       // End the stream
